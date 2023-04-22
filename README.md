@@ -1,8 +1,5 @@
 <div align="center">
 
-[![GPL License][license-shield]][license-url]
-
-
   <h2>InteractionsChatExporter</h2>
 
   <p>
