@@ -1,6 +1,6 @@
 import html
 
-from chat_exporter.ext.discord_import import discord
+import interactions
 
 from chat_exporter.ext.html_generator import (
     fill_out,
@@ -25,8 +25,6 @@ modules_which_use_none = ["nextcord", "disnake"]
 
 
 def _gather_checker():
-    if discord.module not in modules_which_use_none and hasattr(discord.Embed, "Empty"):
-        return discord.Embed.Empty
     return None
 
 
@@ -45,8 +43,8 @@ class Embed:
     check_against = None
 
     def __init__(self, embed, guild):
-        self.embed: discord.Embed = embed
-        self.guild: discord.Guild = guild
+        self.embed: interactions.Embed = embed
+        self.guild: interactions.Guild = guild
 
     async def flow(self):
         self.check_against = _gather_checker()

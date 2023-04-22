@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 from pytz import timezone
 from datetime import timedelta
 
-from chat_exporter.ext.discord_import import discord
+import interactions
 
 from chat_exporter.construct.assets import Attachment, Component, Embed, Reaction
 from chat_exporter.ext.discord_utils import DiscordUtils
@@ -28,7 +28,7 @@ from chat_exporter.ext.html_generator import (
 )
 
 
-def _gather_user_bot(author: discord.Member):
+def _gather_user_bot(author: interactions.Member):
     if author.bot and author.public_flags.verified_bot:
         return bot_tag_verified
     elif author.bot:
@@ -52,11 +52,11 @@ class MessageConstruct:
 
     def __init__(
         self,
-        message: discord.Message,
-        previous_message: Optional[discord.Message],
+        message: interactions.Message,
+        previous_message: Optional[interactions.Message],
         pytz_timezone,
         military_time: bool,
-        guild: discord.Guild,
+        guild: interactions.Guild,
         meta_data: dict
     ):
         self.message = message
@@ -74,10 +74,10 @@ class MessageConstruct:
 
     async def construct_message(
         self,
-    ) -> (str, dict):
-        if discord.MessageType.pins_add == self.message.type:
+    ):
+        if self.message.pinned:
             await self.build_pin()
-        elif discord.MessageType.thread_created == self.message.type:
+        elif self.message.thread:
             await self.build_thread()
         else:
             await self.build_message()
@@ -143,10 +143,10 @@ class MessageConstruct:
             return
 
         try:
-            message: discord.Message = await self.message.channel.fetch_message(self.message.reference.message_id)
-        except (discord.NotFound, discord.HTTPException) as e:
+            message: interactions.Message = await self.message.channel.fetch_message(self.message.reference.message_id)
+        except (interactions.errors.NotFound, interactions.errors.HTTPException) as e:
             self.message.reference = ""
-            if isinstance(e, discord.NotFound):
+            if isinstance(e, interactions.errors.NotFound):
                 self.message.reference = message_reference_unknown
             return
 
@@ -188,7 +188,7 @@ class MessageConstruct:
             self.message.interaction = ""
             return
 
-        user: Union[discord.Member, discord.User] = self.message.interaction.user
+        user: Union[interactions.Member, interactions.User] = self.message.interaction.user
         is_bot = _gather_user_bot(user)
         user_colour = await self._gather_user_colour(user)
         avatar_url = user.display_avatar if user.display_avatar else DiscordUtils.default_avatar
@@ -208,18 +208,19 @@ class MessageConstruct:
         if not self.message.stickers or not hasattr(self.message.stickers[0], "url"):
             return
 
-        sticker_image_url = self.message.stickers[0].url
+        return
+        # sticker_image_url = self.message.stickers[0].url
 
-        if sticker_image_url.endswith(".json"):
-            sticker = await self.message.stickers[0].fetch()
-            sticker_image_url = (
-                f"https://cdn.jsdelivr.net/gh/mahtoid/DiscordUtils@master/stickers/{sticker.pack_id}/{sticker.id}.gif"
-            )
+        # if sticker_image_url.endswith(".json"):
+        #     sticker = self.message.sticker_items[0].format_type.
+        #     sticker_image_url = (
+        #         f"https://cdn.jsdelivr.net/gh/mahtoid/DiscordUtils@master/stickers/{sticker.pack_id}/{sticker.id}.gif"
+        #     )
 
-        self.message.content = await fill_out(self.guild, img_attachment, [
-            ("ATTACH_URL", str(sticker_image_url), PARSE_MODE_NONE),
-            ("ATTACH_URL_THUMB", str(sticker_image_url), PARSE_MODE_NONE)
-        ])
+        # self.message.content = await fill_out(self.guild, img_attachment, [
+        #     ("ATTACH_URL", str(sticker_image_url), PARSE_MODE_NONE),
+        #     ("ATTACH_URL_THUMB", str(sticker_image_url), PARSE_MODE_NONE)
+        # ])
 
     async def build_assets(self):
         for e in self.message.embeds:
@@ -328,7 +329,7 @@ class MessageConstruct:
             ("MESSAGE_ID", str(self.message.id), PARSE_MODE_NONE),
         ])
 
-    async def _gather_member(self, author: discord.Member):
+    async def _gather_member(self, author: interactions.Member):
         member = self.guild.get_member(author.id)
 
         if member:
@@ -339,12 +340,12 @@ class MessageConstruct:
         except Exception:
             return None
 
-    async def _gather_user_colour(self, author: discord.Member):
+    async def _gather_user_colour(self, author: interactions.Member):
         member = await self._gather_member(author)
         user_colour = member.colour if member and str(member.colour) != "#000000" else "#FFFFFF"
         return f"color: {user_colour};"
 
-    async def _gather_user_icon(self, author: discord.Member):
+    async def _gather_user_icon(self, author: interactions.Member):
         member = await self._gather_member(author)
 
         if not member:
@@ -356,7 +357,7 @@ class MessageConstruct:
             return f"<img class='chatlog__role-icon' src='{member.top_role.icon}' alt='Role Icon'>"
         return ""
 
-    def set_time(self, message: Optional[discord.Message] = None):
+    def set_time(self, message: Optional[interactions.Message] = None):
         message = message if message else self.message
         created_at_str = self.to_local_time_str(message.created_at)
         edited_at_str = self.to_local_time_str(message.edited_at) if message.edited_at else ""
@@ -376,14 +377,14 @@ class MessageConstruct:
 
 
 async def gather_messages(
-    messages: List[discord.Message],
-    guild: discord.Guild,
+    messages: List[interactions.Message],
+    guild: interactions.Guild,
     pytz_timezone,
     military_time,
-) -> (str, dict):
+):
     message_html: str = ""
     meta_data: dict = {}
-    previous_message: Optional[discord.Message] = None
+    previous_message: Optional[interactions.Message] = None
 
     for message in messages:
         content_html, meta_data = await MessageConstruct(

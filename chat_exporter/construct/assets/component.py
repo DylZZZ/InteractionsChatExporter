@@ -1,4 +1,4 @@
-from chat_exporter.ext.discord_import import discord
+import interactions
 
 from chat_exporter.ext.discord_utils import DiscordUtils
 from chat_exporter.ext.html_generator import (
@@ -37,13 +37,13 @@ class Component:
         self.guild = guild
 
     async def build_component(self, c):
-        if isinstance(c, discord.Button):
+        if isinstance(c, interactions.Button):
             await self.build_button(c)
-        elif isinstance(c, discord.SelectMenu):
+        elif isinstance(c, tuple([interactions.BaseSelectMenu, interactions.StringSelectMenu, interactions.UserSelectMenu, interactions.ChannelSelectMenu, interactions.RoleSelectMenu])):
             await self.build_menu(c)
             Component.menu_div_id += 1
 
-    async def build_button(self, c):
+    async def build_button(self, c: interactions.Button):
         url = c.url if c.url else ""
         label = c.label if c.label else ""
         style = self.styles[str(c.style).split(".")[1]]
@@ -59,7 +59,7 @@ class Component:
             ("STYLE", style, PARSE_MODE_NONE)
         ])
 
-    async def build_menu(self, c):
+    async def build_menu(self, c: interactions.BaseSelectMenu):
         placeholder = c.placeholder if c.placeholder else ""
         options = c.options
         content = ""
